@@ -1,11 +1,423 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>我的第一个网站</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 智能助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background: #0f172a;
+            color: #e2e8f0;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            width: 260px;
+            background: #1e293b;
+            border-right: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: transform 0.2s;
+        }
+
+        .new-chat-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .history-title {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-bottom: 8px;
+            padding-left: 4px;
+        }
+
+        .history-item {
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #cbd5e1;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: background 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .history-item:hover {
+            background: #334155;
+        }
+
+        /* 主聊天区 */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .chat-header {
+            height: 60px;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            font-weight: 600;
+            font-size: 16px;
+            background: #0f172a;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 消息气泡 */
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 80%;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .avatar.ai {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        }
+
+        .avatar.user {
+            background: #10b981;
+        }
+
+        .message-content {
+            padding: 12px 16px;
+            border-radius: 12px;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        .message.ai .message-content {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-top-left-radius: 4px;
+        }
+
+        .message.user .message-content {
+            background: #2563eb;
+            border-top-right-radius: 4px;
+        }
+
+        /* 欢迎区域 */
+        .welcome-section {
+            text-align: center;
+            margin: 40px 0;
+        }
+
+        .welcome-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .welcome-desc {
+            color: #94a3b8;
+            margin-bottom: 32px;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .action-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 16px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-card:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+        }
+
+        .action-card h4 {
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .action-card p {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        /* 输入区域 */
+        .input-area {
+            padding: 16px 24px 24px;
+            border-top: 1px solid #334155;
+            background: #0f172a;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 12px;
+            transition: border-color 0.2s;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: #3b82f6;
+        }
+
+        #messageInput {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #e2e8f0;
+            font-size: 14px;
+            resize: none;
+            max-height: 120px;
+            line-height: 1.5;
+        }
+
+        .send-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: #3b82f6;
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .send-btn:hover {
+            background: #2563eb;
+        }
+
+        .send-btn:disabled {
+            background: #475569;
+            cursor: not-allowed;
+        }
+
+        /* 滚动条样式 */
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Hello World！</h1>
-    <p>这是我用GitHub Pages做的网站</p>
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+        <button class="new-chat-btn" onclick="newChat()">+ 新建对话</button>
+        <div class="history-title">历史对话</div>
+        <div class="history-item">我的第一个智能体对话</div>
+        <div class="history-item">代码调试助手</div>
+        <div class="history-item">文案创作工具</div>
+    </div>
+
+    <!-- 主聊天区 -->
+    <div class="chat-container">
+        <div class="chat-header">
+            🤖 AI 智能助手
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <!-- 欢迎区域 -->
+            <div class="welcome-section" id="welcomeSection">
+                <h1 class="welcome-title">你好，我是你的 AI 智能助手</h1>
+                <p class="welcome-desc">我可以帮你写代码、查资料、创作文案，有什么我可以帮你的？</p>
+                <div class="quick-actions">
+                    <div class="action-card" onclick="sendQuickMessage('帮我写一段Python冒泡排序代码')">
+                        <h4>💻 代码生成</h4>
+                        <p>帮我写一段Python冒泡排序代码</p>
+                    </div>
+                    <div class="action-card" onclick="sendQuickMessage('写一篇关于人工智能的科普短文')">
+                        <h4>✍️ 文案创作</h4>
+                        <p>写一篇关于人工智能的科普短文</p>
+                    </div>
+                    <div class="action-card" onclick="sendQuickMessage('解释一下什么是GitHub Pages')">
+                        <h4>❓ 知识问答</h4>
+                        <p>解释一下什么是GitHub Pages</p>
+                    </div>
+                    <div class="action-card" onclick="sendQuickMessage('给我几个网站优化的建议')">
+                        <h4>💡 创意建议</h4>
+                        <p>给我几个网站优化的建议</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="input-area">
+            <div class="input-wrapper">
+                <textarea id="messageInput" placeholder="输入你的问题..." rows="1" onkeydown="handleKeyDown(event)"></textarea>
+                <button class="send-btn" onclick="sendMessage()" id="sendBtn">
+                    ➤
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const welcomeSection = document.getElementById('welcomeSection');
+
+        // 自动调整输入框高度
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+
+        // 回车发送
+        function handleKeyDown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // 快捷问题发送
+        function sendQuickMessage(text) {
+            messageInput.value = text;
+            sendMessage();
+        }
+
+        // 发送消息
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text) return;
+
+            // 隐藏欢迎区
+            if (welcomeSection) {
+                welcomeSection.style.display = 'none';
+            }
+
+            // 添加用户消息
+            addMessage(text, 'user');
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+
+            // 模拟AI回复
+            setTimeout(() => {
+                addMessage(getRandomReply(text), 'ai');
+            }, 800);
+        }
+
+        // 添加消息到聊天区
+        function addMessage(text, role) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = `avatar ${role}`;
+            avatar.textContent = role === 'ai' ? 'AI' : '你';
+
+            const content = document.createElement('div');
+            content.className = 'message-content';
+            content.textContent = text;
+
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(content);
+            chatMessages.appendChild(messageDiv);
+
+            // 滚动到底部
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // 模拟回复（演示用）
+        function getRandomReply(question) {
+            const replies = [
+                `好的，关于「${question}」这个问题，我来给你详细解答一下...`,
+                `这是一个很好的问题！我来帮你分析一下：\n1. 首先我们需要明确核心需求\n2. 然后逐步拆解实现步骤\n3. 最后验证效果并优化`,
+                `我已经理解你的需求了，这是一个非常棒的想法。如果需要实现完整功能，我们可以从前端界面开始，逐步对接后端能力。`,
+                `针对这个问题，有几种不同的解决方案，各有优劣。目前最推荐的是轻量化的实现方式，部署简单且维护成本低。`
+            ];
+            return replies[Math.floor(Math.random() * replies.length)];
+        }
+
+        // 新建对话
+        function newChat() {
+            chatMessages.innerHTML = '';
+            chatMessages.appendChild(welcomeSection);
+            welcomeSection.style.display = 'block';
+        }
+    </script>
 </body>
 </html>
