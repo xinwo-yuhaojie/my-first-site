@@ -6197,38 +6197,47 @@ EMC.Care = (function () {
     pushChatTurn('user', text);   // v8 T01 多轮记忆：写入历史
     var ctx = { meds: medsForEngine(), records: S.records, todayPending: todayPending(), health: S.health, guardian: S.guardian, history: CHAT_HISTORY };
     var res = E.chat(text, ctx);
-    /* —— 云端真实大模型兵底：本地引擎答不上来时，改问通义千问 —— */
-    var missed = !res || typeof res.text !== 'string' || res.text.indexOf('还没有完全把握') >= 0;
-    if (missed && V && typeof V.aiChat === 'function') {
+
+    /* 渲染内置引擎结果（同时也是云端失败时的回退路径） */
+    function showLocal() {
+      var node = pushMsg('agent', res.text, { intentLabel: res.intentLabel, steps: res.steps, card: res.card, followups: res.followups });
+      pushChatTurn('agent', res.text);   // v8 T01 多轮记忆：写入历史
+      V.speak(res.text);
+      if (res.action) {
+        if (res.action.type === 'recordHealth') {
+          addHealth(res.action.record);
+          renderHealth(); renderOverview();
+          addGoto(node, 'health', '查看健康档案');
+        } else if (res.action.type === 'goto') {
+          addGoto(node, res.action.tab, '前往「' + tabName(res.action.tab) + '」查看');
+        }
+      }
+      return node;
+    }
+
+    /* —— 主通道：优先调用云端大模型；失败再回退内置智能体 ——
+     * 例外：带副作用的指令类输入（打卡/记血压等，res.action）仍由内置引擎执行 */
+    var isCommand = !!(res && res.action);
+    if (!isCommand && V && typeof V.aiChat === 'function') {
       var pending = pushMsg('agent', '正在思考…', { intentLabel: '智能助手 · 通义千问' });
       var sysMsg = '你是「康伴」，面向老年人的慢性病用药辅助助手。请用简洁、口语化的中文回答，条理清晰，尽量 250 字以内；涉及剂量调整、诊断或急症时，务必建议咨询医生、药师或拨打 120。';
       var msgs = [{ role: 'system', content: sysMsg }].concat((CHAT_HISTORY || []).slice(-6).map(function (m) {
         return { role: m.role === 'user' ? 'user' : 'assistant', content: m.text };
       }));
       V.aiChat(msgs, 500).then(function (ans) {
-        ans = (ans || '').trim() || '抱歉，我暂时没有答上来，请换个说法再问一次。';
+        ans = (ans || '').trim();
+        if (!ans) { if (pending.parentNode) pending.parentNode.removeChild(pending); showLocal(); return; }
         setBubbleText(pending, ans);
         pushChatTurn('agent', ans);
         V.speak(ans);
       }).catch(function () {
-        var fb = '抱歉，智能服务暂时不可用，请稍后再试。';
-        setBubbleText(pending, fb);
-        pushChatTurn('agent', fb);
+        if (pending.parentNode) pending.parentNode.removeChild(pending);
+        showLocal();   // 云端失败 → 回退内置智能体
       });
       return;
     }
-    var node = pushMsg('agent', res.text, { intentLabel: res.intentLabel, steps: res.steps, card: res.card, followups: res.followups });
-    pushChatTurn('agent', res.text);   // v8 T01 多轮记忆：写入历史
-    V.speak(res.text);
-    if (res.action) {
-      if (res.action.type === 'recordHealth') {
-        addHealth(res.action.record);
-        renderHealth(); renderOverview();
-        addGoto(node, 'health', '查看健康档案');
-      } else if (res.action.type === 'goto') {
-        addGoto(node, res.action.tab, '前往「' + tabName(res.action.tab) + '」查看');
-      }
-    }
+
+    showLocal();
   }
   function addGoto(node, tab, label) {
     var btn = document.createElement('button');
