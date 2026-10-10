@@ -5,6 +5,7 @@
 <script>
 (function () {
   var API_BASE = 'https://kangban-ai-cfcnpojddz.cn-beijing.fcapp.run';
+  var ASR_BASE = 'http://127.0.0.1:8790';
   var _fetch = window.fetch ? window.fetch.bind(window) : null;
   if (!_fetch) return;
   window.fetch = function (input, init) {
@@ -12,8 +13,10 @@
     try {
       if (typeof input === 'string') url = input;
       else if (input && input.url) url = String(input.url);
-      if (url.indexOf('/api/') === 0) {
-        var abs = API_BASE + url;
+      // 本地语音识别走本机服务（http://127.0.0.1 视为安全来源，HTTPS 页面也可调）
+      var base = (url.indexOf('/api/asr/') === 0) ? ASR_BASE : (url.indexOf('/api/') === 0 ? API_BASE : null);
+      if (base) {
+        var abs = base + url;
         input = (typeof input === 'string') ? abs : new Request(abs, input);
         url = abs;
       }
