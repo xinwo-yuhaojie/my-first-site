@@ -4,19 +4,27 @@
 <!-- 接口基址重写 + 云端问答应答适配：静态站点没有后端，把 /api/* 指向函数计算服务 -->
 <script>
 (function () {
-  var API_BASE = 'https://kangban-ai-cfcnpojddz.cn-beijing.fcapp.run';
-  var ASR_BASE = 'http://127.0.0.1:8790';
+  var API_BASE = 'https://kangban-ai-cfcnpojddz.cn-beijing.fcapp.run';   // 云端（函数计算）
+  var ASR_CLOUD = API_BASE;                                            // 语音识别：云端（百炼 qwen3-asr-flash）
+  var ASR_LOCAL = 'http://127.0.0.1:8790';                             // 语音识别：本机本地模型（可选，优先且免费）
   var _fetch = window.fetch ? window.fetch.bind(window) : null;
   if (!_fetch) return;
+
+  // 语音识别：先试本机本地服务（1.5 秒未响应就改用云端；云端所有人可用）
+  function fetchAsr(path, init) {
+    var local = _fetch(ASR_LOCAL + path, init);
+    var timer = new Promise(function (_, rej) { setTimeout(function () { rej(new Error('local-timeout')); }, 1500); });
+    return Promise.race([local, timer]).catch(function () { return _fetch(ASR_CLOUD + path, init); });
+  }
+
   window.fetch = function (input, init) {
     var url = '';
     try {
       if (typeof input === 'string') url = input;
       else if (input && input.url) url = String(input.url);
-      // 本地语音识别走本机服务（http://127.0.0.1 视为安全来源，HTTPS 页面也可调）
-      var base = (url.indexOf('/api/asr/') === 0) ? ASR_BASE : (url.indexOf('/api/') === 0 ? API_BASE : null);
-      if (base) {
-        var abs = base + url;
+      if (url.indexOf('/api/asr/') === 0) return fetchAsr(url, init);
+      if (url.indexOf('/api/') === 0) {
+        var abs = API_BASE + url;
         input = (typeof input === 'string') ? abs : new Request(abs, input);
         url = abs;
       }
