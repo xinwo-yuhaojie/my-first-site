@@ -1,23 +1,42 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<!-- 接口基址重写：静态站点没有后端，把 /api/* 指向函数计算服务 -->
+<!-- 接口基址重写 + 云端问答应答适配：静态站点没有后端，把 /api/* 指向函数计算服务 -->
 <script>
 (function () {
   var API_BASE = 'https://kangban-ai-cfcnpojddz.cn-beijing.fcapp.run';
   var _fetch = window.fetch ? window.fetch.bind(window) : null;
-  if (_fetch) {
-    window.fetch = function (input, init) {
-      try {
-        if (typeof input === 'string' && input.indexOf('/api/') === 0) {
-          input = API_BASE + input;
-        } else if (input && typeof input === 'object' && input.url && String(input.url).indexOf('/api/') === 0) {
-          input = new Request(API_BASE + String(input.url), input);
-        }
-      } catch (e) {}
-      return _fetch(input, init);
-    };
-  }
+  if (!_fetch) return;
+  window.fetch = function (input, init) {
+    var url = '';
+    try {
+      if (typeof input === 'string') url = input;
+      else if (input && input.url) url = String(input.url);
+      if (url.indexOf('/api/') === 0) {
+        var abs = API_BASE + url;
+        input = (typeof input === 'string') ? abs : new Request(abs, input);
+        url = abs;
+      }
+    } catch (e) {}
+    var p = _fetch(input, init);
+    // 后端返回 OpenAI 风格 {choices:[...]}，而页面 aiChat 期待 {text:"..."}，这里做适配
+    if (url.indexOf('/api/ai/chat') >= 0) {
+      return p.then(function (res) {
+        if (!res || !res.ok) return res;
+        return res.clone().json().then(function (j) {
+          if (j && !j.text && j.choices && j.choices[0] && j.choices[0].message) {
+            j.text = j.choices[0].message.content || '';
+          }
+          return new Response(JSON.stringify(j), {
+            status: res.status,
+            statusText: res.statusText,
+            headers: { 'content-type': 'application/json; charset=utf-8' }
+          });
+        }).catch(function () { return res; });
+      });
+    }
+    return p;
+  };
 })();
 </script>
 <meta charset="utf-8">
@@ -6156,6 +6175,17 @@ EMC.Care = (function () {
     bub.appendChild(fc);
   }
 
+  /* 替换气泡里的正文（保留“智能体 · xx”标签等结构） */
+  function setBubbleText(wrap, txt) {
+    var bub = (wrap && wrap.querySelector) ? wrap.querySelector('.bubble') : null;
+    if (!bub) return;
+    var d = null;
+    for (var i = 0; i < bub.children.length; i++) {
+      if (bub.children[i].tagName === 'DIV') { d = bub.children[i]; break; }
+    }
+    if (d) d.textContent = txt; else bub.textContent = txt;
+  }
+
   function sendText() {
     var input = $id('chatInput');
     var text = (input.value || '').trim();
@@ -6167,6 +6197,26 @@ EMC.Care = (function () {
     pushChatTurn('user', text);   // v8 T01 多轮记忆：写入历史
     var ctx = { meds: medsForEngine(), records: S.records, todayPending: todayPending(), health: S.health, guardian: S.guardian, history: CHAT_HISTORY };
     var res = E.chat(text, ctx);
+    /* —— 云端真实大模型兵底：本地引擎答不上来时，改问通义千问 —— */
+    var missed = !res || typeof res.text !== 'string' || res.text.indexOf('还没有完全把握') >= 0;
+    if (missed && V && typeof V.aiChat === 'function') {
+      var pending = pushMsg('agent', '正在思考…', { intentLabel: '智能助手 · 通义千问' });
+      var sysMsg = '你是「康伴」，面向老年人的慢性病用药辅助助手。请用简洁、口语化的中文回答，条理清晰，尽量 250 字以内；涉及剂量调整、诊断或急症时，务必建议咨询医生、药师或拨打 120。';
+      var msgs = [{ role: 'system', content: sysMsg }].concat((CHAT_HISTORY || []).slice(-6).map(function (m) {
+        return { role: m.role === 'user' ? 'user' : 'assistant', content: m.text };
+      }));
+      V.aiChat(msgs, 500).then(function (ans) {
+        ans = (ans || '').trim() || '抱歉，我暂时没有答上来，请换个说法再问一次。';
+        setBubbleText(pending, ans);
+        pushChatTurn('agent', ans);
+        V.speak(ans);
+      }).catch(function () {
+        var fb = '抱歉，智能服务暂时不可用，请稍后再试。';
+        setBubbleText(pending, fb);
+        pushChatTurn('agent', fb);
+      });
+      return;
+    }
     var node = pushMsg('agent', res.text, { intentLabel: res.intentLabel, steps: res.steps, card: res.card, followups: res.followups });
     pushChatTurn('agent', res.text);   // v8 T01 多轮记忆：写入历史
     V.speak(res.text);
