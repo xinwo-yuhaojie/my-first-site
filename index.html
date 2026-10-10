@@ -1,6 +1,25 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<!-- 接口基址重写：静态站点没有后端，把 /api/* 指向函数计算服务 -->
+<script>
+(function () {
+  var API_BASE = 'https://kangban-ai-cfcnpojddz.cn-beijing.fcapp.run';
+  var _fetch = window.fetch ? window.fetch.bind(window) : null;
+  if (_fetch) {
+    window.fetch = function (input, init) {
+      try {
+        if (typeof input === 'string' && input.indexOf('/api/') === 0) {
+          input = API_BASE + input;
+        } else if (input && typeof input === 'object' && input.url && String(input.url).indexOf('/api/') === 0) {
+          input = new Request(API_BASE + String(input.url), input);
+        }
+      } catch (e) {}
+      return _fetch(input, init);
+    };
+  }
+})();
+</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>康伴 · 老年慢性病智能用药辅助智能体</title>
